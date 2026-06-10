@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-sample-ingress
+  namespace: default # Must be the same namespace as your Rails app service
+spec:
+  ingressClassName: traefik # Routes this Ingress through the Traefik controller
+  rules:
+  - host: localhost # Change this to your actual internet domain name
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-sample-service # The name of your app's Kubernetes Service
+            port:
+              number: 80 # The port your Service listens on

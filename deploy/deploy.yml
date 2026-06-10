@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-sample-deployment
+  namespace: default
+  labels:
+    app: web-sample-app
+spec:
+  replicas: 2 # Runs two copies of your app for safety
+  selector:
+    matchLabels:
+      app: web-sample-app
+  template:
+    metadata:
+      labels:
+        app: web-sample-app # This matches the Service selector exactly
+    spec:
+      containers:
+        - name: web-sample-app
+          image: nginx:latest # Placeholder for your custom Rails+Nginx image
+          ports:
+            - containerPort: 80 # The port Nginx listens on inside the container
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "256m"
