@@ -6,7 +6,7 @@ metadata:
   labels:
     app: web-sample-app
 spec:
-  replicas: 2 # Runs two copies of your app for safety
+  replicas: 3 # Runs two copies of your app for safety
   selector:
     matchLabels:
       app: web-sample-app
