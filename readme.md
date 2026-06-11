@@ -225,3 +225,257 @@ kubectl delete -f deploy/deploy.yml
 | Pods not ready | `kubectl describe pod <name>` and `kubectl logs <name>` |
 | Browser shows nothing | `kubectl get ingress` — is Traefik running? Try `curl -H "Host: localhost" http://localhost` |
 | Wrong Ingress controller | Ingress must set `spec.ingressClassName: traefik` |
+
+---
+
+# Argo CD Learn
+
+## Install Argo CD
+
+Create an isolated namespace and install Argo CD using the stable manifests.
+
+### Create Namespace
+
+```bash
+kubectl create namespace argocd
+```
+
+### Apply Installation Manifest
+
+Normally:
+
+```bash
+kubectl apply -n argocd -f argocd.yml
+```
+
+if you got this error
+
+```
+The CustomResourceDefinition "applicationsets.argoproj.io" is invalid: metadata.annotations: Too long: may not be more than 262144 bytes
+```
+
+This error caused by newer versions of the Argo CD ApplicationSet CustomResourceDefinition (CRD) are too large for standard client-side deployments. By default, kubectl apply tries to inject the entire manifest payload into a hidden metadata annotation (kubectl.kubernetes.io/last-applied-configuration). This instantly breaks past the hard 256 KiB (262,144 bytes) limit enforced by the Kubernetes API server.Run the installation command again using the --server-side flag to bypass the client-side annotation requirement entirely.
+
+For this project, use **server-side apply**:
+
+```bash
+kubectl apply --server-side -n argocd -f argocd.yml
+```
+
+---
+
+## Get Default Admin Password
+
+Retrieve the initial admin password:
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+-o jsonpath="{.data.password}" | base64 -d && echo
+```
+
+Default username:
+
+```text
+admin
+```
+
+---
+
+## Access Argo CD UI
+
+By default, the Argo CD server is not exposed externally.
+
+Create a port-forward:
+
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Open the following URL:
+
+```text
+https://localhost:8080
+```
+
+Login using:
+
+- Username: `admin`
+- Password: Retrieved from the previous step
+
+---
+
+# Connect Git Repository
+
+1. Open **Settings**
+2. Select **Repositories**
+3. Click **+ Connect Repo**
+
+For this project, use a GitHub Personal Access Token (PAT).
+
+### Repository Configuration
+
+Connection Method:
+
+```text
+HTTPS
+```
+
+Repository URL:
+
+```text
+https://github.com/zcky1990/learn-kubernetes
+```
+
+Fill the following information:
+
+| Field          | Value                        |
+| -------------- | ---------------------------- |
+| Name           | Your repository name         |
+| Project        | Default or your project      |
+| Repository URL | GitHub repository URL        |
+| Username       | Your GitHub username         |
+| Password       | GitHub Personal Access Token |
+
+> The Personal Access Token should start with `ghp_`.
+
+Click **Connect**.
+
+If the repository is connected successfully, continue to the next step.
+
+---
+
+# Create Application
+
+For learning purposes, create the application manually through the Argo CD UI.
+
+1. Click **New App**
+2. Fill in the application details
+3. Select the connected repository
+4. Choose the target branch or tag
+5. Set the path containing the Kubernetes manifests. For this project we are targeting `deploy` folder
+6. Click **Create**
+
+---
+
+# Understanding the GitOps Flow
+
+```mermaid
+flowchart TD
+    A[GitHub Repository] --> B[Argo CD]
+    B --> C[Kubernetes Cluster]
+```
+
+Argo CD continuously compares:
+
+```mermaid
+flowchart TD
+    A[Git State<br/>Desired State] <--> B[Argo CD]
+    B <--> C[Cluster State<br/>Actual State]
+```
+
+When changes are detected, Argo CD synchronizes the cluster to match Git.
+
+---
+
+# Test Argo CD Synchronization
+
+Modify the deployment manifest.
+
+Example:
+
+Before:
+
+```yaml
+replicas: 2
+```
+
+After:
+
+```yaml
+replicas: 3
+```
+
+Commit and push the changes:
+
+```bash
+git add .
+git commit -m "increase replicas"
+git push
+```
+
+---
+
+## Verify Synchronization
+
+Check the application status in Argo CD.
+
+Expected status:
+
+```text
+Healthy
+Synced
+```
+
+Verify the deployment:
+
+```bash
+kubectl get deployment
+```
+
+Verify the pods:
+
+```bash
+kubectl get pods
+```
+
+---
+
+# Enable Auto Sync (Recommended)
+
+When creating the application, enable:
+
+```text
+Auto Sync
+Prune
+Self Heal
+```
+
+## Self Heal
+
+If someone modifies the cluster manually:
+
+```bash
+kubectl edit deployment nginx
+```
+
+Argo CD automatically restores the configuration from Git.
+
+## Prune
+
+If a resource is removed from Git:
+
+```text
+deployment.yaml deleted
+```
+
+Argo CD will remove the resource from the cluster.
+
+---
+
+# Why Use Server-Side Apply?
+
+This project uses:
+
+```bash
+kubectl apply --server-side -n argocd -f argocd/argocd.yml
+```
+
+Benefits:
+
+- Better field ownership management
+- Reduced merge conflicts
+- Better compatibility with GitOps workflows
+- Recommended for large manifests
+- Kubernetes API Server performs the merge operation
+
+---
