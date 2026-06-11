@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-sample-deployment
+  namespace: default
+  labels:
+    app: web-sample-app
+spec:
+  replicas: 5 # Runs two copies of your app for safety
+  selector:
+    matchLabels:
+      app: web-sample-app
+  template:
+    metadata:
+      labels:
+        app: web-sample-app # This matches the Service selector exactly
+    spec:
+      affinity:
+        # podAntiAffinity:
+        #   requiredDuringSchedulingIgnoredDuringExecution:
+        #   - labelSelector:
+        #       matchExpressions:
+        #       - key: app
+        #         operator: In
+        #         values:
+        #         - web-sample-app
+        #     # This ensures no two pods with the same label land on the same node
+        #     topologyKey: "kubernetes.io/hostname"
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: web-app
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web-sample-app
+          image: nginx:latest # Placeholder for your custom Nginx image
+          ports:
+            - containerPort: 80 # The port Nginx listens on inside the container
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "256m"
